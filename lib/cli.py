@@ -1,4 +1,4 @@
-from Journal import Base, User, JournalEntry
+from Journal import Base, User, JournalEntry,Category
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -17,27 +17,41 @@ def add_user():
     print(f'User {username} added successfully.')
 
     # Print the contents of the users table
-    users = session.query(User).all()
-    print("Users in the database:")
-    for user in users:
-        print(f'ID: {user.id}, Username: {user.username}, Email: {user.email}')
-
+    print_users(session)
+    session.close()
 
 def add_entry():
     title = input('Enter title: ')
     content = input('Enter content: ')
     username = input('Enter username: ')
+    category_name= input('Enter category:')
     
     session = Session()
     user = session.query(User).filter_by(username=username).first()
-    
-    if user:
-        entry = JournalEntry(title=title, content=content, user=user)
-        session.add(entry)
-        session.commit()
-        print(f'Journal entry added successfully for user {username}.')
+    category= session.query(Category).filter_by(name=category_name).first()
+
+    if  category is None :
+        print('category not found')
     else:
-        print(f'User {username} not found. Please add the user first.')
+        if user:
+            entry = JournalEntry(title=title, content=content, user=user, category= category)
+            session.add(entry)
+            session.commit()
+            print(f'Journal entry added successfully for user {username}.')
+            # Print the contents of the journal_entries table
+            print_entries(session)
+        else:
+            print(f'User {username} not found. Please add the user first.')
+            session.close()
+
+def add_category():
+    name = input('Enter category name:')
+    description = input('Enter a description:')
+    session =Session()
+    category = Category(name=name, description=description)
+    session.add(category)
+    session.commit()
+    print ('category added succesfully')
 
 def view_entries():
     username = input('Enter username: ')
@@ -55,6 +69,8 @@ def view_entries():
     else:
         print(f'User {username} not found.')
 
+    session.close()
+
 def edit_entry():
     title = input('Enter title of the entry to edit: ')
     new_title = input('Enter new title: ')
@@ -71,6 +87,8 @@ def edit_entry():
     else:
         print(f'Journal entry with title {title} not found.')
 
+    session.close()
+
 def delete_entry():
     title = input('Enter title of the entry to delete: ')
     session = Session()
@@ -83,18 +101,35 @@ def delete_entry():
     else:
         print(f'Journal entry with title {title} not found.')
 
+    session.close()
+
+def print_users(session):
+    # Print the contents of the users table
+    users = session.query(User).all()
+    print("Users in the database:")
+    for user in users:
+        print(f'ID: {user.id}, Username: {user.username}, Email: {user.email}')
+
+def print_entries(session):
+    # Print the contents of the journal_entries table
+    entries = session.query(JournalEntry).all()
+    print("Journal entries in the database:")
+    for entry in entries:
+        print(f'ID: {entry.id}, Title: {entry.title}, Content: {entry.content}, User ID: {entry.user_id}')
+
 if __name__ == '__main__':
     while True:
         print("\nOptions:")
         print("1. Add User")
         print("2. Add Journal Entry")
-        print("3. View Journal Entries")
-        print("4. Edit Journal Entry")
-        print("5. Delete Journal Entry")
-        print("6. Exit")
+        print("3. Add a Category")
+        print("4. View Journal Entries")
+        print("5. Edit Journal Entry")
+        print("6. Delete Journal Entry")
+        print("7. Exit")
 
         try:
-            choice = int(input("Enter your choice (1-6): "))
+            choice = int(input("Enter your choice (1-7): "))
         except ValueError:
             print("Invalid input. Please enter a number.")
             continue
@@ -103,13 +138,16 @@ if __name__ == '__main__':
             add_user()
         elif choice == 2:
             add_entry()
-        elif choice == 3:
-            view_entries()
+        elif choice==3:
+            add_category()
         elif choice == 4:
-            edit_entry()
+            view_entries()
         elif choice == 5:
-            delete_entry()
+            edit_entry()
         elif choice == 6:
+            delete_entry()
+        elif choice == 7:
+        
             break
         else:
-            print("Invalid choice. Please enter a number between 1 and 6.")
+            print("Invalid. Please enter a number between 1 and 6.")

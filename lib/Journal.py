@@ -10,7 +10,7 @@ class User(Base):
     username = Column(String, unique=True, nullable=False)
     email = Column(String, unique=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    # Add more user-related fields if necessary
+   
 
 class Category(Base):
     __tablename__ = 'categories'
@@ -18,7 +18,7 @@ class Category(Base):
     name = Column(String, unique=True, nullable=False)
     description = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    # Add more category-related fields if necessary
+    
 
 class JournalEntry(Base):
     __tablename__ = 'journal_entries'
@@ -28,6 +28,8 @@ class JournalEntry(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     user_id = Column(Integer, ForeignKey('users.id'))
     category_id = Column(Integer, ForeignKey('categories.id'))
+
+    
     user = relationship('User', back_populates='journal_entries')
     category = relationship('Category', back_populates='journal_entries')
 
