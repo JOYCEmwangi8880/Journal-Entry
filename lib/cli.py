@@ -1,69 +1,81 @@
-from Journal import Base, User, JournalEntry,Category
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
+from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import declarative_base
 
 DATABASE_URL = 'sqlite:///journal.db'
 engine = create_engine(DATABASE_URL)
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True)
+    entries = relationship('JournalEntry', back_populates='user')
+
+class Category(Base):
+    __tablename__ = 'categories'
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    description = Column(String)
+    entries = relationship('JournalEntry', back_populates='category')
+
+class JournalEntry(Base):
+    __tablename__ = 'journal_entries'
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    content = Column(String)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    category_id = Column(Integer, ForeignKey('categories.id'))
+
+    user = relationship('User', back_populates='entries')
+    category = relationship('Category', back_populates='entries')
+
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 
-def add_user():
-    username = input('Enter username: ')
-    email = input('Enter email: ')
-    session = Session()
-    user = User(username=username, email=email)
-    session.add(user)
-    session.commit()
-    print(f'User {username} added successfully.')
-
-    # Print the contents of the users table
-    print_users(session)
-    session.close()
-
-def add_entry():
+def create_journal_entry():
     title = input('Enter title: ')
     content = input('Enter content: ')
-    username = input('Enter username: ')
-    category_name= input('Enter category:')
+    username = input('Enter your username: ')
+    category_name = input('Enter category: ')
+
+    session = Session()
     
+    # Check if the user exists, if not, add the user
+    user = session.query(User).filter_by(username=username).first()
+    if user is None:
+        email = input('Enter email for the user: ')
+        user = User(username=username, email=email)
+        session.add(user)
+        session.commit()
+        print(f'User {username} added successfully.')
+
+    # Check if the category exists, if not, add the category
+    category = session.query(Category).filter_by(name=category_name).first()
+    if category is None:
+        description = input('Enter a description for the category:')
+        category = Category(name=category_name, description=description)
+        session.add(category)
+        session.commit()
+        print('Category added successfully.')
+
+    session.close()
+
+def view_journal_entries():
+    username = input('Enter your username: ')
     session = Session()
     user = session.query(User).filter_by(username=username).first()
-    category= session.query(Category).filter_by(name=category_name).first()
 
-    if  category is None :
-        print('category not found')
-    else:
-        if user:
-            entry = JournalEntry(title=title, content=content, user=user, category= category)
-            session.add(entry)
-            session.commit()
-            print(f'Journal entry added successfully for user {username}.')
-            # Print the contents of the journal_entries table
-            print_entries(session)
-        else:
-            print(f'User {username} not found. Please add the user first.')
-            session.close()
-
-def add_category():
-    name = input('Enter category name:')
-    description = input('Enter a description:')
-    session =Session()
-    category = Category(name=name, description=description)
-    session.add(category)
-    session.commit()
-    print ('category added succesfully')
-
-def view_entries():
-    username = input('Enter username: ')
-    session = Session()
-    user = session.query(User).filter_by(username=username).first()
-    
     if user:
         entries = session.query(JournalEntry).filter_by(user=user).all()
         if entries:
             print(f'Journal entries for user {username}:')
             for entry in entries:
-                print(f'Title: {entry.title}\nContent: {entry.content}\n')
+                print(f'Title: {entry.title}\nContent: {entry.content}\nCategory: {entry.category.name}\n')
         else:
             print(f'No journal entries found for user {username}.')
     else:
@@ -71,29 +83,29 @@ def view_entries():
 
     session.close()
 
-def edit_entry():
-    title = input('Enter title of the entry to edit: ')
+def update_journal_entry():
+    title = input('Enter title of the entry to update: ')
     new_title = input('Enter new title: ')
     new_content = input('Enter new content: ')
-    
+
     session = Session()
     entry = session.query(JournalEntry).filter_by(title=title).first()
-    
+
     if entry:
         entry.title = new_title
         entry.content = new_content
         session.commit()
-        print(f'Journal entry edited successfully.')
+        print(f'Journal entry updated successfully.')
     else:
         print(f'Journal entry with title {title} not found.')
 
     session.close()
 
-def delete_entry():
+def delete_journal_entry():
     title = input('Enter title of the entry to delete: ')
     session = Session()
     entry = session.query(JournalEntry).filter_by(title=title).first()
-    
+
     if entry:
         session.delete(entry)
         session.commit()
@@ -103,51 +115,56 @@ def delete_entry():
 
     session.close()
 
-def print_users(session):
-    # Print the contents of the users table
-    users = session.query(User).all()
-    print("Users in the database:")
-    for user in users:
-        print(f'ID: {user.id}, Username: {user.username}, Email: {user.email}')
+def list_journal_entries():
+    # This method could be used by an admin to list all journal entries
+    session = Session()
+    entries = session.query(JournalEntry).all()
+
+    if entries:
+        print("All Journal Entries:")
+        for entry in entries:
+            print(f'Title: {entry.title}\nContent: {entry.content}\nCategory: {entry.category.name}\n')
+    else:
+        print("No journal entries found.")
+
+    session.close()
 
 def print_entries(session):
-    # Print the contents of the journal_entries table
     entries = session.query(JournalEntry).all()
-    print("Journal entries in the database:")
-    for entry in entries:
-        print(f'ID: {entry.id}, Title: {entry.title}, Content: {entry.content}, User ID: {entry.user_id}')
+    if entries:
+        print("All Journal Entries:")
+        for entry in entries:
+            print(f'Title: {entry.title}\nContent: {entry.content}\nCategory: {entry.category.name}\n')
+    else:
+        print("No journal entries found.")
 
 if __name__ == '__main__':
     while True:
         print("\nOptions:")
-        print("1. Add User")
-        print("2. Add Journal Entry")
-        print("3. Add a Category")
-        print("4. View Journal Entries")
-        print("5. Edit Journal Entry")
-        print("6. Delete Journal Entry")
-        print("7. Exit")
+        print("1. Create Journal Entry")
+        print("2. View Journal Entries")
+        print("3. Update Journal Entry")
+        print("4. Delete Journal Entry")
+        print("5. List Journal Entries (Admin)")
+        print("6. Exit")
 
         try:
-            choice = int(input("Enter your choice (1-7): "))
+            choice = int(input("Enter your choice (1-6): "))
         except ValueError:
             print("Invalid input. Please enter a number.")
             continue
 
         if choice == 1:
-            add_user()
+            create_journal_entry()
         elif choice == 2:
-            add_entry()
-        elif choice==3:
-            add_category()
+            view_journal_entries()
+        elif choice == 3:
+            update_journal_entry()
         elif choice == 4:
-            view_entries()
+            delete_journal_entry()
         elif choice == 5:
-            edit_entry()
+            list_journal_entries()
         elif choice == 6:
-            delete_entry()
-        elif choice == 7:
-        
             break
         else:
             print("Invalid. Please enter a number between 1 and 6.")
