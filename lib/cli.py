@@ -1,41 +1,13 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
-from sqlalchemy.orm import sessionmaker, relationship
-from sqlalchemy.orm import declarative_base
+from Journal import Base, User, JournalEntry, Category
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 DATABASE_URL = 'sqlite:///journal.db'
 engine = create_engine(DATABASE_URL)
-Base = declarative_base()
-
-class User(Base):
-    __tablename__ = 'users'
-
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    entries = relationship('JournalEntry', back_populates='user')
-
-class Category(Base):
-    __tablename__ = 'categories'
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
-    description = Column(String)
-    entries = relationship('JournalEntry', back_populates='category')
-
-class JournalEntry(Base):
-    __tablename__ = 'journal_entries'
-
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
-    content = Column(String)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    category_id = Column(Integer, ForeignKey('categories.id'))
-
-    user = relationship('User', back_populates='entries')
-    category = relationship('Category', back_populates='entries')
-
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
+
+
 
 def create_journal_entry():
     title = input('Enter title: ')
@@ -45,16 +17,16 @@ def create_journal_entry():
 
     session = Session()
     
-    # Check if the user exists, if not, add the user
     user = session.query(User).filter_by(username=username).first()
+
     if user is None:
-        email = input('Enter email for the user: ')
+        # User not found, let's create a new user
+        email = input('Enter your email: ')
         user = User(username=username, email=email)
         session.add(user)
         session.commit()
         print(f'User {username} added successfully.')
 
-    # Check if the category exists, if not, add the category
     category = session.query(Category).filter_by(name=category_name).first()
     if category is None:
         description = input('Enter a description for the category:')
@@ -63,7 +35,14 @@ def create_journal_entry():
         session.commit()
         print('Category added successfully.')
 
+    entry = JournalEntry(title=title, content=content, user=user, category=category)
+    session.add(entry)
+    session.commit()
+    print(f'Journal entry added successfully for user {username}.')
+
+    print_entries(session)
     session.close()
+
 
 def view_journal_entries():
     username = input('Enter your username: ')
@@ -116,7 +95,6 @@ def delete_journal_entry():
     session.close()
 
 def list_journal_entries():
-    # This method could be used by an admin to list all journal entries
     session = Session()
     entries = session.query(JournalEntry).all()
 
