@@ -6,6 +6,7 @@ DATABASE_URL = 'sqlite:///journal.db'
 engine = create_engine(DATABASE_URL)
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
+session = Session()
 
 
 
@@ -81,18 +82,56 @@ def update_journal_entry():
     session.close()
 
 def delete_journal_entry():
-    title = input('Enter title of the entry to delete: ')
-    session = Session()
-    entry = session.query(JournalEntry).filter_by(title=title).first()
+    username = input("Enter your username: ")
+    user = session.query(User).filter_by(username=username).first()
 
-    if entry:
-        session.delete(entry)
-        session.commit()
-        print(f'Journal entry deleted successfully.')
+    if user:
+        entries = session.query(JournalEntry).filter_by(user=user).all()
+        if entries:
+            print(f"Journal Entries for user '{username}':")
+            for entry in entries:
+                category_name = entry.category.name if entry.category else 'None'
+                print(f"ID: {entry.id}, Title: {entry.title}, Category: {category_name}")
+
+            entry_id_to_delete = int(input("Enter the Journal Entry ID to delete: "))
+            entry_to_delete = session.query(JournalEntry).filter_by(id=entry_id_to_delete, user=user).first()
+
+            if entry_to_delete:
+                # Check if the user has only one entry
+                other_entries_for_user = session.query(JournalEntry).filter(
+                    JournalEntry.user == user, JournalEntry.id != entry_to_delete.id
+                ).count()
+
+                # Check if the category is associated with any other entries
+                if entry_to_delete.category:
+                    other_entries_with_category = session.query(JournalEntry).filter(
+                        JournalEntry.category == entry_to_delete.category, JournalEntry.id != entry_to_delete.id
+                    ).count()
+
+                    # Delete the category if there are no other entries with this category
+                    if other_entries_with_category == 0:
+                        session.delete(entry_to_delete.category)
+
+                # Delete the entry
+                session.delete(entry_to_delete)
+
+                # Check if the user has no other entries, then delete the user
+                if other_entries_for_user == 0:
+                    session.delete(user)
+
+                session.commit()
+
+                print(f"Journal Entry '{entry_to_delete.title}' deleted successfully for user {username}.")
+            else:
+                print("Invalid Journal Entry ID or the entry does not belong to the specified user.")
+        else:
+            # No entries found for the user, delete the user
+            session.delete(user)
+            session.commit()
+            print(f"No entries found for user '{username}'. User '{username}' deleted.")
     else:
-        print(f'Journal entry with title {title} not found.')
-
-    session.close()
+        print(f"User '{username}' not found.")
+    
 
 def list_journal_entries():
     session = Session()
